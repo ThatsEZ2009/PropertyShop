@@ -1,0 +1,49 @@
+# ---------------- PropertyShop ----------------
+
+# Safety cap: most chunks a single wand selection can grab at once.
+max-selection-chunks: 256
+# Properties are sets of chunks an admin lists for sale. Players buy them with
+# real items and then own them. Owners (and admins) can build and use containers
+# inside their plot; everyone else is blocked from the "protected" blocks below
+# but can still use anything else - which is how DisplayShops keeps working.
+
+# When someone walks into a property chunk, show this on their action bar.
+action-bar:
+  enabled: true
+  owned: "&aProperty: &f{name} &7- Owner: &e{owner}"
+  for-sale: "&6Property: &f{name} &7- &aFOR SALE! &7Use &f/property buy &7- Price: {price}"
+
+# How long (seconds) the /property preview chunk outline shows.
+preview-seconds: 6
+
+# Blocks outsiders may NOT use inside a property (right-click).
+# Everything not on this list still works for everyone (so shops, etc. are fine).
+# Use Minecraft material names. Tags below auto-include whole groups.
+protect-tags:
+  doors: true          # all doors
+  trapdoors: true      # all trapdoors
+  fence-gates: true    # all fence gates
+  buttons: true        # all buttons
+  shulker-boxes: true  # all shulker box colors
+  beds: true           # all beds
+protected-blocks:
+  - CHEST
+  - TRAPPED_CHEST
+  - BARREL
+  - HOPPER
+  - DISPENSER
+  - DROPPER
+  - FURNACE
+  - BLAST_FURNACE
+  - SMOKER
+  - BREWING_STAND
+  - LEVER
+  - ANVIL
+  - CHIPPED_ANVIL
+  - DAMAGED_ANVIL
+  - LECTERN
+  - GRINDSTONE
+  - CARTOGRAPHY_TABLE
+  - LOOM
+  - SMITHING_TABLE
+  - BEACON

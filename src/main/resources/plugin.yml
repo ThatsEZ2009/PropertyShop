@@ -1,0 +1,18 @@
+name: PropertyShop
+version: 1.2.1
+main: me.kohen.propertyshop.PropertyShop
+api-version: '1.21'
+author: Kohen
+description: Admins list chunk properties for sale; players buy them with items and own them, protected from others.
+commands:
+  property:
+    description: Buy and manage properties.
+    usage: /property <menu|preview|info|buy|list|trust|wand|create|barrel|setprice|...>
+    aliases: [plot, prop]
+permissions:
+  propertyshop.use:
+    description: Preview, view, and buy properties.
+    default: true
+  propertyshop.admin:
+    description: Create and manage properties, and bypass protection.
+    default: op
