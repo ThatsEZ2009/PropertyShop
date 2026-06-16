@@ -73,8 +73,8 @@ public class WandMapManager {
         int bx = cx << 4, bz = cz << 4;
         for (int x = bx; x < bx + 16; x++) {
             for (int z = bz; z < bz + 16; z++) {
-                int y = w.getHighestBlockYAt(x, z);
-                Location loc = new Location(w, x, y, z);
+                org.bukkit.block.Block top = w.getHighestBlockAt(x, z, org.bukkit.HeightMap.MOTION_BLOCKING);
+                Location loc = top.getLocation();
                 p.sendBlockChange(loc, data);
                 out.add(new Fake(loc, data));
             }

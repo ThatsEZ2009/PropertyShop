@@ -107,10 +107,10 @@ public class BorderManager {
     private void place(Player p, World w, int x, int z, BlockData a, BlockData b, Set<String> seen, List<Fake> out) {
         String k = x + "," + z;
         if (!seen.add(k)) return;
-        int y = w.getHighestBlockYAt(x, z);
-        Location loc = new Location(w, x, y, z);
-        // Only paint on natural ground - skip water, lava, and player-built blocks.
-        if (!plugin.isBorderSurface(loc.getBlock().getType())) return;
+        org.bukkit.block.Block top = w.getHighestBlockAt(x, z, org.bukkit.HeightMap.MOTION_BLOCKING);
+        if (top.isLiquid()) return;                          // never on water/lava
+        if (!plugin.isBorderSurface(top.getType())) return;  // natural ground only
+        Location loc = top.getLocation();
         BlockData data = (((x + z) & 1) == 0) ? a : b;
         p.sendBlockChange(loc, data);
         out.add(new Fake(loc, data));
