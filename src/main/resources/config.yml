@@ -47,3 +47,12 @@ protected-blocks:
   - LOOM
   - SMITHING_TABLE
   - BEACON
+
+# -------------------- PLOT BORDER --------------------
+# A client-side yellow/black border shown to the owner/trusted when they're inside
+# their plot. It's fake (sent only to that player) - it can't be broken and never
+# changes anyone's real blocks. Sits 1 block outside the plot, on the top surface.
+border:
+  enabled: true
+  yellow-block: YELLOW_CONCRETE
+  black-block: BLACK_CONCRETE

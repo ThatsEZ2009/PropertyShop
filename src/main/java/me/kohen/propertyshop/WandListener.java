@@ -90,7 +90,6 @@ public class WandListener implements Listener {
         }
         p.sendActionBar(Component.text("Added chunk " + b.getChunk().getX() + "," + b.getChunk().getZ()
                 + "  (" + total + " selected)", NamedTextColor.GREEN));
-        plugin.previewChunk(p, b.getChunk());
     }
 
     private void removeChunk(Player p, Block b) {

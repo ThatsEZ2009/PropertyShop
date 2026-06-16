@@ -210,7 +210,7 @@ public class PropertyCommand implements CommandExecutor, TabCompleter {
 
     // ---------------- item factories ----------------
     private ItemStack makeWand() {
-        ItemStack is = new ItemStack(Material.GOLDEN_HOE);
+        ItemStack is = new ItemStack(Material.BLAZE_ROD);
         ItemMeta meta = is.getItemMeta();
         meta.displayName(Component.text("Property Selector").color(NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
         meta.lore(List.of(
