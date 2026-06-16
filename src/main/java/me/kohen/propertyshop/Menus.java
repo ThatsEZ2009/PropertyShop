@@ -134,24 +134,6 @@ public class Menus {
         player.openInventory(inv);
     }
 
-    // ---------- text input (anvil) ----------
-    public void openTextInput(Player player, Property p, boolean title) {
-        PropertyHolder holder = new PropertyHolder(
-                title ? PropertyHolder.Type.TITLE_INPUT : PropertyHolder.Type.DESC_INPUT, p.getName());
-        Inventory inv = Bukkit.createInventory(holder, org.bukkit.event.inventory.InventoryType.ANVIL,
-                Component.text(title ? "Set plot title" : "Set description"));
-        holder.setInventory(inv);
-        ItemStack paper = new ItemStack(Material.PAPER);
-        ItemMeta meta = paper.getItemMeta();
-        String cur = title ? p.getTitleText() : (p.getDescription() == null ? "" : p.getDescription());
-        meta.displayName(legacy(cur.isEmpty() ? "type here" : cur));
-        paper.setItemMeta(meta);
-        inv.setItem(0, paper);
-        player.openInventory(inv);
-        player.sendMessage("§7Type the " + (title ? "title" : "description")
-                + " in the box, then click the result on the right to save. One line only.");
-    }
-
     // ---------- helpers ----------
     public ItemStack button(Material m, String name, String action, List<String> lore) {
         ItemStack is = new ItemStack(m);

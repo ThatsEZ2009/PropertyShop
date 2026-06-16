@@ -79,3 +79,10 @@ titles:
   # One-line caps so the text never wraps to a second line.
   max-title-length: 24
   max-description-length: 40
+
+# -------------------- WAND MAP --------------------
+# While an op holds the wand, nearby chunks are shaded: RED = already claimed/taken,
+# BLUE = free. Your current selection shows as a green outline on top.
+# radius = how many chunks out from you to shade (2 = a 5x5 grid).
+wand-map:
+  radius: 2

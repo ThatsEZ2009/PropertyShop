@@ -17,10 +17,10 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Per-player, client-side rings. A player can see several at once:
- *  - their own owned plot (yellow/black, just OUTSIDE the edge) when inside it
- *  - any for-sale plot in view range (green, just INSIDE the edge) - visible from a distance
- * Everything is sent only to that player, so nothing is real or breakable.
+ * Per-player, client-side rings. Owner plots = yellow/black just OUTSIDE the edge (shown
+ * when inside). For-sale plots = green just INSIDE the edge, shown to everyone in range.
+ * Fake blocks are re-sent periodically so Bedrock/Geyser clients that load a chunk late
+ * still receive them (that's why the green ring wasn't showing on Bedrock).
  */
 public class BorderManager {
     private final PropertyShop plugin;
@@ -28,10 +28,13 @@ public class BorderManager {
 
     public BorderManager(PropertyShop plugin) { this.plugin = plugin; }
 
+    private static class Fake {
+        final Location loc; final BlockData data;
+        Fake(Location loc, BlockData data) { this.loc = loc; this.data = data; }
+    }
     private static class Shown {
-        final boolean forSale;
-        final List<Location> locs;
-        Shown(boolean forSale, List<Location> locs) { this.forSale = forSale; this.locs = locs; }
+        final boolean forSale; final List<Fake> blocks;
+        Shown(boolean forSale, List<Fake> blocks) { this.forSale = forSale; this.blocks = blocks; }
     }
 
     private Material mat(String path, Material def) {
@@ -39,16 +42,14 @@ public class BorderManager {
         return m == null ? def : m;
     }
 
-    /** Make the player's visible rings match the desired set (name -> forSale?). */
     public void reconcile(Player p, Map<String, Boolean> desired) {
         Map<String, Shown> cur = shown.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>());
-
         Iterator<Map.Entry<String, Shown>> it = cur.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, Shown> e = it.next();
             Boolean want = desired.get(e.getKey());
             if (want == null || want != e.getValue().forSale) {
-                restore(p, e.getValue().locs);
+                restore(p, e.getValue().blocks);
                 it.remove();
             }
         }
@@ -56,13 +57,21 @@ public class BorderManager {
             if (cur.containsKey(e.getKey())) continue;
             Property prop = plugin.getManager().get(e.getKey());
             if (prop == null) continue;
-            List<Location> locs = draw(p, prop, e.getValue());
-            cur.put(e.getKey(), new Shown(e.getValue(), locs));
+            List<Fake> blocks = draw(p, prop, e.getValue());
+            cur.put(e.getKey(), new Shown(e.getValue(), blocks));
         }
     }
 
-    private List<Location> draw(Player p, Property prop, boolean forSale) {
-        List<Location> out = new ArrayList<>();
+    /** Re-push currently shown blocks so late-loading (Bedrock) clients receive them. */
+    public void resend(Player p) {
+        Map<String, Shown> cur = shown.get(p.getUniqueId());
+        if (cur == null) return;
+        for (Shown s : cur.values())
+            for (Fake f : s.blocks) p.sendBlockChange(f.loc, f.data);
+    }
+
+    private List<Fake> draw(Player p, Property prop, boolean forSale) {
+        List<Fake> out = new ArrayList<>();
         World w = Bukkit.getWorld(prop.getWorld());
         if (w == null) return out;
         BlockData a = (forSale ? mat("border.for-sale.block-a", Material.LIME_CONCRETE)
@@ -82,12 +91,12 @@ public class BorderManager {
             boolean west = !cs.contains((cx - 1) + "," + cz);
             boolean east = !cs.contains((cx + 1) + "," + cz);
 
-            if (forSale) { // ring sits just INSIDE the plot edge
+            if (forSale) { // just INSIDE the plot edge
                 if (north) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz, a, b, seen, out);
                 if (south) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz + 15, a, b, seen, out);
                 if (west) for (int z = bz; z < bz + 16; z++) place(p, w, bx, z, a, b, seen, out);
                 if (east) for (int z = bz; z < bz + 16; z++) place(p, w, bx + 15, z, a, b, seen, out);
-            } else { // ring sits just OUTSIDE the plot edge
+            } else { // just OUTSIDE the plot edge
                 if (north) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz - 1, a, b, seen, out);
                 if (south) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz + 16, a, b, seen, out);
                 if (west) for (int z = bz; z < bz + 16; z++) place(p, w, bx - 1, z, a, b, seen, out);
@@ -101,18 +110,19 @@ public class BorderManager {
         return out;
     }
 
-    private void place(Player p, World w, int x, int z, BlockData a, BlockData b, Set<String> seen, List<Location> out) {
+    private void place(Player p, World w, int x, int z, BlockData a, BlockData b, Set<String> seen, List<Fake> out) {
         String k = x + "," + z;
         if (!seen.add(k)) return;
         int y = w.getHighestBlockYAt(x, z);
         Location loc = new Location(w, x, y, z);
-        p.sendBlockChange(loc, (((x + z) & 1) == 0) ? a : b);
-        out.add(loc);
+        BlockData data = (((x + z) & 1) == 0) ? a : b;
+        p.sendBlockChange(loc, data);
+        out.add(new Fake(loc, data));
     }
 
-    private void restore(Player p, List<Location> locs) {
+    private void restore(Player p, List<Fake> blocks) {
         if (!p.isOnline()) return;
-        for (Location loc : locs) p.sendBlockChange(loc, loc.getBlock().getBlockData());
+        for (Fake f : blocks) p.sendBlockChange(f.loc, f.loc.getBlock().getBlockData());
     }
 
     public void forget(UUID id) { shown.remove(id); }
@@ -121,7 +131,7 @@ public class BorderManager {
         for (Map.Entry<UUID, Map<String, Shown>> e : shown.entrySet()) {
             Player p = Bukkit.getPlayer(e.getKey());
             if (p == null) continue;
-            for (Shown s : e.getValue().values()) restore(p, s.locs);
+            for (Shown s : e.getValue().values()) restore(p, s.blocks);
         }
         shown.clear();
     }

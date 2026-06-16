@@ -15,5 +15,6 @@ public class MovementListener implements Listener {
     public void onQuit(PlayerQuitEvent e) {
         Player p = e.getPlayer();
         plugin.getBorders().forget(p.getUniqueId());
+        plugin.textInput.remove(p.getUniqueId());
     }
 }

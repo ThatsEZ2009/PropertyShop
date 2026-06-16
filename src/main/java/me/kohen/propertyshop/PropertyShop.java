@@ -30,6 +30,7 @@ public class PropertyShop extends JavaPlugin {
     private HologramManager holograms;
     private final Set<Material> protectedBlocks = new HashSet<>();
     private final java.util.Map<java.util.UUID, String> titleLast = new java.util.HashMap<>();
+    public final java.util.Map<java.util.UUID, String[]> textInput = new java.util.HashMap<>(); // uuid -> {propName, "T"/"D"}
 
     private NamespacedKey actionKey;
     private NamespacedKey wandKey;
@@ -57,12 +58,13 @@ public class PropertyShop extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MovementListener(this), this);
         getServer().getPluginManager().registerEvents(new WandListener(this), this);
         getServer().getPluginManager().registerEvents(new MenuListener(this), this);
+        getServer().getPluginManager().registerEvents(new ChatInputListener(this), this);
 
         startWandHighlight();
         holograms.cleanupStray();
         startBorderTask();
         startHologramTask();
-        getLogger().info("PropertyShop v1.6.0 enabled.");
+        getLogger().info("PropertyShop v1.7.0 enabled.");
     }
 
     @Override
@@ -161,7 +163,9 @@ public class PropertyShop extends JavaPlugin {
     // ---------------- particle outlines ----------------
     private void startBorderTask() {
         new BukkitRunnable() {
+            int cycle = 0;
             @Override public void run() {
+                cycle++;
                 int radius = getConfig().getInt("for-sale-ring.view-chunks", 8);
                 boolean titlesOn = getConfig().getBoolean("titles.enabled", true);
                 for (Player p : getServer().getOnlinePlayers()) {
@@ -181,6 +185,7 @@ public class PropertyShop extends JavaPlugin {
                         }
                     }
                     borders.reconcile(p, desired);
+                    if ((cycle & 1) == 0) borders.resend(p); // re-push so Bedrock keeps the rings
 
                     // Title only when ENTERING a plot (not every chunk inside it).
                     Property in = activeAt(pc);
@@ -239,17 +244,45 @@ public class PropertyShop extends JavaPlugin {
     public int maxTitleLen() { return getConfig().getInt("titles.max-title-length", 24); }
     public int maxDescLen() { return getConfig().getInt("titles.max-description-length", 40); }
 
+    /** Called (on the main thread) after a player types a title/description in chat. */
+    public void applyTextInput(Player p, String[] pend, String msg) {
+        Property prop = manager.get(pend[0]);
+        if (prop == null) { p.sendMessage("§cThat property no longer exists."); return; }
+        if (msg.equalsIgnoreCase("cancel")) { p.sendMessage("§7Cancelled."); return; }
+        boolean title = pend[1].equals("T");
+        String text = capText(msg, title ? maxTitleLen() : maxDescLen());
+        if (title) prop.setTitle(text.isEmpty() ? null : text);
+        else prop.setDescription(text.isEmpty() ? null : text);
+        manager.save();
+        p.sendMessage("§a" + (title ? "Title" : "Description") + " saved: §f" + text);
+        menus.openPanel(p, prop);
+    }
+
     private void startWandHighlight() {
         new BukkitRunnable() {
             @Override public void run() {
                 for (Player p : getServer().getOnlinePlayers()) {
                     if (!isWand(p.getInventory().getItemInMainHand())) continue;
+                    if (!p.hasPermission("propertyshop.admin")) continue; // op/admin only
                     World w = p.getWorld();
+                    String world = w.getName();
                     Chunk here = p.getLocation().getChunk();
-                    drawChunkOutline(p, w, here.getX(), here.getZ());
+                    int r = getConfig().getInt("wand-map.radius", 2);
+                    Color red = Color.fromRGB(255, 45, 45);
+                    Color blue = Color.fromRGB(50, 110, 255);
+                    Color green = Color.fromRGB(60, 255, 90);
+
+                    for (int dx = -r; dx <= r; dx++) {
+                        for (int dz = -r; dz <= r; dz++) {
+                            int cx = here.getX() + dx, cz = here.getZ() + dz;
+                            boolean claimed = manager.ownerOfChunk(world, cx + "," + cz) != null;
+                            chunkParticles(p, w, cx, cz, claimed ? red : blue, true);
+                        }
+                    }
+                    // Your current selection on top, in green outline.
                     for (String key : selection.chunks(p)) {
                         String[] pa = key.split(",");
-                        try { drawChunkOutline(p, w, Integer.parseInt(pa[0]), Integer.parseInt(pa[1])); }
+                        try { chunkParticles(p, w, Integer.parseInt(pa[0]), Integer.parseInt(pa[1]), green, false); }
                         catch (NumberFormatException ignored) {}
                     }
                 }
@@ -277,27 +310,34 @@ public class PropertyShop extends JavaPlugin {
 
     private void scheduleOutline(Player p, World w, List<int[]> chunks) {
         int seconds = getConfig().getInt("preview-seconds", 6);
+        Color yellow = Color.fromRGB(255, 221, 0);
         new BukkitRunnable() {
             int ticks = 0;
             @Override public void run() {
                 if (ticks >= seconds * 2 || !p.isOnline()) { cancel(); return; }
-                for (int[] c : chunks) drawChunkOutline(p, w, c[0], c[1]);
+                for (int[] c : chunks) chunkParticles(p, w, c[0], c[1], yellow, false);
                 ticks++;
             }
         }.runTaskTimer(this, 0L, 10L);
     }
 
-    private void drawChunkOutline(Player p, World w, int cx, int cz) {
+    /** Draw a chunk outline (and a sparse interior fill if fill=true) in the given color. */
+    private void chunkParticles(Player p, World w, int cx, int cz, Color color, boolean fill) {
         int minX = cx << 4, minZ = cz << 4, maxX = minX + 16, maxZ = minZ + 16;
         double y = p.getLocation().getY() + 1.0;
-        Particle.DustOptions dust = new Particle.DustOptions(Color.fromRGB(255, 221, 0), 1.4f);
-        for (int x = minX; x <= maxX; x++) {
+        Particle.DustOptions dust = new Particle.DustOptions(color, 1.3f);
+        for (int x = minX; x <= maxX; x += 2) {
             p.spawnParticle(Particle.DUST, new Location(w, x, y, minZ), 1, dust);
             p.spawnParticle(Particle.DUST, new Location(w, x, y, maxZ), 1, dust);
         }
-        for (int z = minZ; z <= maxZ; z++) {
+        for (int z = minZ; z <= maxZ; z += 2) {
             p.spawnParticle(Particle.DUST, new Location(w, minX, y, z), 1, dust);
             p.spawnParticle(Particle.DUST, new Location(w, maxX, y, z), 1, dust);
+        }
+        if (fill) {
+            for (int x = minX + 4; x < maxX; x += 4)
+                for (int z = minZ + 4; z < maxZ; z += 4)
+                    p.spawnParticle(Particle.DUST, new Location(w, x, y, z), 1, dust);
         }
     }
 }
