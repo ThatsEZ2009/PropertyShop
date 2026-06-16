@@ -163,6 +163,10 @@ public class PropertyManager {
             for (String t : s.getStringList("trusted")) {
                 try { p.addTrusted(UUID.fromString(t)); } catch (IllegalArgumentException ignored) {}
             }
+            String titleStr = s.getString("title", "");
+            if (titleStr != null && !titleStr.isEmpty()) p.setTitle(titleStr);
+            String descStr = s.getString("description", "");
+            if (descStr != null && !descStr.isEmpty()) p.setDescription(descStr);
             ConfigurationSection priceSec = s.getConfigurationSection("price");
             if (priceSec != null) {
                 for (String mat : priceSec.getKeys(false)) {
@@ -182,6 +186,8 @@ public class PropertyManager {
             yml.set(base + "chunks", new ArrayList<>(p.getChunks()));
             yml.set(base + "owner", p.getOwner() == null ? "" : p.getOwner().toString());
             yml.set(base + "owner-name", p.getOwnerName() == null ? "" : p.getOwnerName());
+            yml.set(base + "title", p.getTitle() == null ? "" : p.getTitle());
+            yml.set(base + "description", p.getDescription() == null ? "" : p.getDescription());
             List<String> trust = new ArrayList<>();
             for (UUID id : p.getTrusted()) trust.add(id.toString());
             yml.set(base + "trusted", trust);

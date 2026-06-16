@@ -10,38 +10,67 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Draws a per-player, client-side yellow/black border 1 block outside a property's
- * outer edge, on the top surface block only. Nothing real is placed, so it can't be
- * broken and never affects other players' builds. Cleared the moment the player leaves.
+ * Per-player, client-side rings. A player can see several at once:
+ *  - their own owned plot (yellow/black, just OUTSIDE the edge) when inside it
+ *  - any for-sale plot in view range (green, just INSIDE the edge) - visible from a distance
+ * Everything is sent only to that player, so nothing is real or breakable.
  */
 public class BorderManager {
     private final PropertyShop plugin;
-    private final Map<UUID, List<Location>> shown = new HashMap<>();
-    private final Map<UUID, String> shownProp = new HashMap<>();
+    private final Map<UUID, Map<String, Shown>> shown = new HashMap<>();
 
     public BorderManager(PropertyShop plugin) { this.plugin = plugin; }
 
-    public String shownProperty(Player p) { return shownProp.get(p.getUniqueId()); }
+    private static class Shown {
+        final boolean forSale;
+        final List<Location> locs;
+        Shown(boolean forSale, List<Location> locs) { this.forSale = forSale; this.locs = locs; }
+    }
 
     private Material mat(String path, Material def) {
         Material m = Material.matchMaterial(plugin.getConfig().getString(path, def.name()));
         return m == null ? def : m;
     }
 
-    public void show(Player p, Property prop) {
-        World w = Bukkit.getWorld(prop.getWorld());
-        if (w == null) return;
-        Set<String> cs = prop.getChunks();
-        BlockData yellow = mat("border.yellow-block", Material.YELLOW_CONCRETE).createBlockData();
-        BlockData black = mat("border.black-block", Material.BLACK_CONCRETE).createBlockData();
+    /** Make the player's visible rings match the desired set (name -> forSale?). */
+    public void reconcile(Player p, Map<String, Boolean> desired) {
+        Map<String, Shown> cur = shown.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>());
 
+        Iterator<Map.Entry<String, Shown>> it = cur.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, Shown> e = it.next();
+            Boolean want = desired.get(e.getKey());
+            if (want == null || want != e.getValue().forSale) {
+                restore(p, e.getValue().locs);
+                it.remove();
+            }
+        }
+        for (Map.Entry<String, Boolean> e : desired.entrySet()) {
+            if (cur.containsKey(e.getKey())) continue;
+            Property prop = plugin.getManager().get(e.getKey());
+            if (prop == null) continue;
+            List<Location> locs = draw(p, prop, e.getValue());
+            cur.put(e.getKey(), new Shown(e.getValue(), locs));
+        }
+    }
+
+    private List<Location> draw(Player p, Property prop, boolean forSale) {
         List<Location> out = new ArrayList<>();
+        World w = Bukkit.getWorld(prop.getWorld());
+        if (w == null) return out;
+        BlockData a = (forSale ? mat("border.for-sale.block-a", Material.LIME_CONCRETE)
+                : mat("border.owned.block-a", Material.YELLOW_CONCRETE)).createBlockData();
+        BlockData b = (forSale ? mat("border.for-sale.block-b", Material.GREEN_CONCRETE)
+                : mat("border.owned.block-b", Material.BLACK_CONCRETE)).createBlockData();
+
+        Set<String> cs = prop.getChunks();
         Set<String> seen = new HashSet<>();
         for (String key : cs) {
             String[] pa = key.split(",");
@@ -53,45 +82,47 @@ public class BorderManager {
             boolean west = !cs.contains((cx - 1) + "," + cz);
             boolean east = !cs.contains((cx + 1) + "," + cz);
 
-            if (north) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz - 1, yellow, black, seen, out);
-            if (south) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz + 16, yellow, black, seen, out);
-            if (west) for (int z = bz; z < bz + 16; z++) place(p, w, bx - 1, z, yellow, black, seen, out);
-            if (east) for (int z = bz; z < bz + 16; z++) place(p, w, bx + 16, z, yellow, black, seen, out);
-            if (north && west) place(p, w, bx - 1, bz - 1, yellow, black, seen, out);
-            if (north && east) place(p, w, bx + 16, bz - 1, yellow, black, seen, out);
-            if (south && west) place(p, w, bx - 1, bz + 16, yellow, black, seen, out);
-            if (south && east) place(p, w, bx + 16, bz + 16, yellow, black, seen, out);
+            if (forSale) { // ring sits just INSIDE the plot edge
+                if (north) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz, a, b, seen, out);
+                if (south) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz + 15, a, b, seen, out);
+                if (west) for (int z = bz; z < bz + 16; z++) place(p, w, bx, z, a, b, seen, out);
+                if (east) for (int z = bz; z < bz + 16; z++) place(p, w, bx + 15, z, a, b, seen, out);
+            } else { // ring sits just OUTSIDE the plot edge
+                if (north) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz - 1, a, b, seen, out);
+                if (south) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz + 16, a, b, seen, out);
+                if (west) for (int z = bz; z < bz + 16; z++) place(p, w, bx - 1, z, a, b, seen, out);
+                if (east) for (int z = bz; z < bz + 16; z++) place(p, w, bx + 16, z, a, b, seen, out);
+                if (north && west) place(p, w, bx - 1, bz - 1, a, b, seen, out);
+                if (north && east) place(p, w, bx + 16, bz - 1, a, b, seen, out);
+                if (south && west) place(p, w, bx - 1, bz + 16, a, b, seen, out);
+                if (south && east) place(p, w, bx + 16, bz + 16, a, b, seen, out);
+            }
         }
-        shown.put(p.getUniqueId(), out);
-        shownProp.put(p.getUniqueId(), prop.getName());
+        return out;
     }
 
-    private void place(Player p, World w, int x, int z, BlockData yellow, BlockData black,
-                       Set<String> seen, List<Location> out) {
+    private void place(Player p, World w, int x, int z, BlockData a, BlockData b, Set<String> seen, List<Location> out) {
         String k = x + "," + z;
         if (!seen.add(k)) return;
         int y = w.getHighestBlockYAt(x, z);
         Location loc = new Location(w, x, y, z);
-        BlockData data = (((x + z) & 1) == 0) ? yellow : black;
-        p.sendBlockChange(loc, data);
+        p.sendBlockChange(loc, (((x + z) & 1) == 0) ? a : b);
         out.add(loc);
     }
 
-    public void clear(Player p) {
-        List<Location> locs = shown.remove(p.getUniqueId());
-        shownProp.remove(p.getUniqueId());
-        if (locs == null || !p.isOnline()) return;
-        for (Location loc : locs) {
-            p.sendBlockChange(loc, loc.getBlock().getBlockData()); // restore the real block view
-        }
+    private void restore(Player p, List<Location> locs) {
+        if (!p.isOnline()) return;
+        for (Location loc : locs) p.sendBlockChange(loc, loc.getBlock().getBlockData());
     }
 
+    public void forget(UUID id) { shown.remove(id); }
+
     public void clearAll() {
-        for (UUID id : new ArrayList<>(shown.keySet())) {
-            Player p = Bukkit.getPlayer(id);
-            if (p != null) clear(p);
+        for (Map.Entry<UUID, Map<String, Shown>> e : shown.entrySet()) {
+            Player p = Bukkit.getPlayer(e.getKey());
+            if (p == null) continue;
+            for (Shown s : e.getValue().values()) restore(p, s.locs);
         }
         shown.clear();
-        shownProp.clear();
     }
 }

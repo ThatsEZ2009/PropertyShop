@@ -1,5 +1,8 @@
 package me.kohen.propertyshop;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -7,9 +10,12 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.PrepareAnvilEvent;
+import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +34,13 @@ public class MenuListener implements Listener {
 
         // Price editor: let the player freely place/take items (that IS the input).
         if (ph.getType() == PropertyHolder.Type.PRICE_EDITOR) return;
+
+        // Text input (anvil): block item moves; clicking the result slot saves the typed text.
+        if (ph.getType() == PropertyHolder.Type.TITLE_INPUT || ph.getType() == PropertyHolder.Type.DESC_INPUT) {
+            e.setCancelled(true);
+            if (e.getRawSlot() == 2) saveTypedText(p, ph, e.getInventory());
+            return;
+        }
 
         // All other menus are display-only.
         e.setCancelled(true);
@@ -87,6 +100,14 @@ public class MenuListener implements Listener {
                 if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId())))
                     plugin.getMenus().openTrust(p, prop);
             }
+            case "settitle" -> {
+                if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId())))
+                    plugin.getMenus().openTextInput(p, prop, true);
+            }
+            case "setdesc" -> {
+                if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId())))
+                    plugin.getMenus().openTextInput(p, prop, false);
+            }
         }
     }
 
@@ -121,6 +142,35 @@ public class MenuListener implements Listener {
         plugin.getManager().completePurchase(p, prop);
         p.sendMessage(ChatColor.GREEN + "You bought '" + prop.getName() + "'! Paid: " + prop.priceString());
         plugin.getMenus().openPanel(p, prop);
+    }
+
+    private void saveTypedText(Player p, PropertyHolder ph, Inventory inv) {
+        Property prop = plugin.getManager().get(ph.getProperty());
+        if (prop == null) { p.closeInventory(); return; }
+        String text = (inv instanceof AnvilInventory ai && ai.getRenameText() != null) ? ai.getRenameText() : "";
+        boolean title = ph.getType() == PropertyHolder.Type.TITLE_INPUT;
+        text = plugin.capText(text, title ? plugin.maxTitleLen() : plugin.maxDescLen());
+        if (title) prop.setTitle(text.isEmpty() ? null : text);
+        else prop.setDescription(text.isEmpty() ? null : text);
+        plugin.getManager().save();
+        p.closeInventory();
+        p.sendMessage(ChatColor.GREEN + (title ? "Title" : "Description") + " saved"
+                + (text.isEmpty() ? " (cleared)." : ": " + text));
+        Bukkit.getScheduler().runTask(plugin, () -> plugin.getMenus().openPanel(p, prop));
+    }
+
+    @EventHandler
+    public void onPrepareAnvil(PrepareAnvilEvent e) {
+        if (!(e.getInventory().getHolder() instanceof PropertyHolder ph)) return;
+        if (ph.getType() != PropertyHolder.Type.TITLE_INPUT && ph.getType() != PropertyHolder.Type.DESC_INPUT) return;
+        String text = e.getInventory().getRenameText();
+        ItemStack result = new ItemStack(Material.PAPER);
+        ItemMeta meta = result.getItemMeta();
+        meta.displayName(Component.text("Save: " + (text == null || text.isEmpty() ? "(clear)" : text))
+                .color(NamedTextColor.GREEN));
+        result.setItemMeta(meta);
+        e.setResult(result);
+        e.getInventory().setRepairCost(0);
     }
 
     @EventHandler

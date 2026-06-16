@@ -17,6 +17,8 @@ public class Property {
     private final Set<UUID> trusted = new LinkedHashSet<>();
     private UUID owner;          // null = for sale
     private String ownerName;
+    private String title;        // big title text (null = auto from owner)
+    private String description;  // one-line subtitle
 
     public Property(String name, String world) {
         this.name = name;
@@ -55,10 +57,29 @@ public class Property {
         this.owner = null;
         this.ownerName = null;
         this.trusted.clear();
+        this.title = null;
+        this.description = null;
+    }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    /** The big title shown on entry: custom title if set, else an owner-based default. */
+    public String getTitleText() {
+        if (title != null && !title.isEmpty()) return title;
+        if (isOwned()) return ownerName + "'s Plot";
+        return "Plot";
     }
 
     public boolean isOwnedBy(UUID id) {
         return owner != null && owner.equals(id);
+    }
+
+    /** A property only "exists" for players once it's owned or has a price. No free/priceless plots. */
+    public boolean isActive() {
+        return isOwned() || hasPrice();
     }
 
     public String priceString() {

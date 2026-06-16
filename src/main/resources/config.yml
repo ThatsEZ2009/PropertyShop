@@ -10,11 +10,16 @@ max-selection-chunks: 256
 # When someone walks into a property chunk, show this on their action bar.
 action-bar:
   enabled: true
-  owned: "&aProperty: &f{name} &7- Owner: &e{owner}"
-  for-sale: "&6Property: &f{name} &7- &aFOR SALE! &7Use &f/property buy &7- Price: {price}"
+  # Shown to anyone standing in a FOR-SALE plot. No property name - just the price.
+  for-sale: "&a&lFOR SALE &7- Price: &f{price} &7- &f/property buy"
 
 # How long (seconds) the /property preview chunk outline shows.
 preview-seconds: 6
+
+# How many chunks away players can see a for-sale plot's green ring (and its hologram
+# appears within entity range). Keep at or below your server view-distance.
+for-sale-ring:
+  view-chunks: 8
 
 # Blocks outsiders may NOT use inside a property (right-click).
 # Everything not on this list still works for everyone (so shops, etc. are fine).
@@ -54,5 +59,23 @@ protected-blocks:
 # changes anyone's real blocks. Sits 1 block outside the plot, on the top surface.
 border:
   enabled: true
-  yellow-block: YELLOW_CONCRETE
-  black-block: BLACK_CONCRETE
+  # Yellow/black ring shown to the OWNER & trusted inside an owned plot (private).
+  owned:
+    block-a: YELLOW_CONCRETE
+    block-b: BLACK_CONCRETE
+  # Green ring shown to EVERYONE inside a for-sale plot so they know it's available.
+  for-sale:
+    block-a: LIME_CONCRETE
+    block-b: GREEN_CONCRETE
+
+# -------------------- ENTRY TITLE --------------------
+# Big fading text shown when a player ENTERS a plot (owned -> title + description,
+# for-sale -> "FOR SALE" + price). It fades out on its own.
+titles:
+  enabled: true
+  fade-in-ms: 300
+  stay-ms: 2000
+  fade-out-ms: 1000
+  # One-line caps so the text never wraps to a second line.
+  max-title-length: 24
+  max-description-length: 40

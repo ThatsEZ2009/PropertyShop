@@ -1,5 +1,5 @@
 name: PropertyShop
-version: 1.3.0
+version: 1.6.0
 main: me.kohen.propertyshop.PropertyShop
 api-version: '1.21'
 author: Kohen

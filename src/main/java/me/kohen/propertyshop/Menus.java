@@ -23,24 +23,27 @@ public class Menus {
 
     // ---------- main list ----------
     public void openMain(Player player) {
-        List<Property> all = plugin.getManager().all();
+        boolean admin = player.hasPermission("propertyshop.admin");
         PropertyHolder holder = new PropertyHolder(PropertyHolder.Type.MAIN, null);
         Inventory inv = Bukkit.createInventory(holder, 54, Component.text("Properties"));
         holder.setInventory(inv);
 
         int slot = 0;
-        for (Property p : all) {
+        for (Property p : plugin.getManager().all()) {
             if (slot >= 45) break;
+            boolean forSale = p.isActive() && !p.isOwned();
+            if (!admin && !forSale) continue; // players only see buyable plots
             List<String> lore = new ArrayList<>();
             lore.add("§7Chunks: §f" + p.getChunks().size());
-            lore.add("§7Price: §f" + p.priceString());
-            lore.add(p.isOwned() ? "§7Owner: §e" + p.getOwnerName() : "§aFOR SALE");
+            Material icon;
+            if (!p.isActive()) { icon = Material.GRAY_CONCRETE; lore.add("§8Draft - no price set"); }
+            else if (p.isOwned()) { icon = Material.IRON_BLOCK; lore.add("§7Owner: §e" + p.getOwnerName()); }
+            else { icon = Material.LIME_CONCRETE; lore.add("§aFOR SALE §7- " + p.priceString()); }
             lore.add("§8Click to open");
-            inv.setItem(slot++, button(p.isOwned() ? Material.IRON_BLOCK : Material.GRASS_BLOCK,
-                    "§f" + p.getName(), "open:" + p.getName(), lore));
+            inv.setItem(slot++, button(icon, "§f" + p.getName(), "open:" + p.getName(), lore));
         }
 
-        if (player.hasPermission("propertyshop.admin")) {
+        if (admin) {
             inv.setItem(49, button(Material.EMERALD_BLOCK, "§aNew property from selection", "create",
                     List.of("§7Uses your wand selection", "§7(or the chunk you're standing in)")));
         }
@@ -50,46 +53,51 @@ public class Menus {
 
     // ---------- one property ----------
     public void openPanel(Player player, Property p) {
-        // Owned plots are private: only the owner, their trusted players, or an admin may open them.
-        // For-sale plots stay open so anyone can buy.
-        if (p.isOwned()
-                && !player.hasPermission("propertyshop.admin")
-                && !p.isOwnedBy(player.getUniqueId())
-                && !p.isTrusted(player.getUniqueId())) {
+        boolean admin = player.hasPermission("propertyshop.admin");
+        boolean owner = p.isOwnedBy(player.getUniqueId());
+        boolean trusted = p.isTrusted(player.getUniqueId());
+
+        // Drafts (no price) don't exist for players; owned plots are private.
+        if (!p.isActive() && !admin) { player.sendMessage("§cThat property isn't available."); return; }
+        if (p.isOwned() && !admin && !owner && !trusted) {
             player.sendMessage("§cThat property is owned by " + p.getOwnerName() + " - you can't open it.");
             return;
         }
+
         PropertyHolder holder = new PropertyHolder(PropertyHolder.Type.PANEL, p.getName());
         Inventory inv = Bukkit.createInventory(holder, 27, Component.text("Property: " + p.getName()));
         holder.setInventory(inv);
-        boolean admin = player.hasPermission("propertyshop.admin");
-        boolean ownerOrAdmin = admin || p.isOwnedBy(player.getUniqueId());
 
         List<String> head = new ArrayList<>();
         head.add("§7Chunks: §f" + p.getChunks().size());
-        head.add("§7Price: §f" + p.priceString());
-        head.add(p.isOwned() ? "§7Owner: §e" + p.getOwnerName() : "§aFOR SALE");
+        if (!p.isActive()) head.add("§8Draft - set a price to list it");
+        else if (p.isOwned()) head.add("§7Owner: §e" + p.getOwnerName());
+        else head.add("§aFOR SALE §7- " + p.priceString());
         inv.setItem(4, button(Material.PAPER, "§f" + p.getName(), "none", head));
 
-        inv.setItem(10, button(Material.ENDER_EYE, "§bPreview borders", "preview",
-                List.of("§7Light up this property's chunks")));
-
-        if (!p.isOwned()) {
-            inv.setItem(12, button(Material.EMERALD, "§aBuy this property", "buy",
+        // Build only the buttons that apply, then center them so there's never a gap.
+        List<ItemStack> btns = new ArrayList<>();
+        btns.add(button(Material.ENDER_EYE, "§bPreview borders", "preview", List.of("§7Light up this property")));
+        if (p.isActive() && !p.isOwned())
+            btns.add(button(Material.EMERALD, "§aBuy this property", "buy",
                     List.of("§7Cost: §f" + p.priceString(), "§7Pays with items in your inventory")));
+        if (admin)
+            btns.add(button(Material.GOLD_INGOT, "§6Set price", "setprice", List.of("§7Drop the items to charge")));
+        if (p.isOwned() && (admin || owner))
+            btns.add(button(Material.NAME_TAG, "§eTrusted players", "trust", List.of("§7Let friends build & use chests")));
+        if (admin || owner) {
+            btns.add(button(Material.OAK_SIGN, "§bSet plot title", "settitle", List.of("§7The big text shown on entry")));
+            btns.add(button(Material.WRITABLE_BOOK, "§bSet description", "setdesc", List.of("§7One line under the title")));
         }
-        if (ownerOrAdmin) {
-            inv.setItem(14, button(Material.NAME_TAG, "§eTrusted players", "trust",
-                    List.of("§7Let friends build & use chests here")));
-        }
-        if (admin) {
-            inv.setItem(11, button(Material.GOLD_INGOT, "§6Set price", "setprice",
-                    List.of("§7Drop the items you want to charge")));
-            inv.setItem(15, button(Material.LEVER, "§eMake available again", "unclaim",
-                    List.of("§7Clears the owner; back up for sale")));
-            inv.setItem(16, button(Material.RED_WOOL, "§cDelete property", "delete",
-                    List.of("§7§lShift-click§7 to confirm")));
-        }
+        if (admin && p.isOwned())
+            btns.add(button(Material.LEVER, "§eMake available again", "unclaim", List.of("§7Clears the owner")));
+        if (admin)
+            btns.add(button(Material.RED_WOOL, "§cDelete property", "delete", List.of("§7§lShift-click§7 to confirm")));
+
+        int n = btns.size();
+        int start = 9 + Math.max(0, (9 - n) / 2);
+        for (int i = 0; i < n && start + i <= 17; i++) inv.setItem(start + i, btns.get(i));
+
         inv.setItem(22, button(Material.ARROW, "§7Back to list", "main", List.of()));
         player.openInventory(inv);
     }
@@ -124,6 +132,24 @@ public class Menus {
         }
         inv.setItem(53, button(Material.ARROW, "§7Back", "panel", List.of()));
         player.openInventory(inv);
+    }
+
+    // ---------- text input (anvil) ----------
+    public void openTextInput(Player player, Property p, boolean title) {
+        PropertyHolder holder = new PropertyHolder(
+                title ? PropertyHolder.Type.TITLE_INPUT : PropertyHolder.Type.DESC_INPUT, p.getName());
+        Inventory inv = Bukkit.createInventory(holder, org.bukkit.event.inventory.InventoryType.ANVIL,
+                Component.text(title ? "Set plot title" : "Set description"));
+        holder.setInventory(inv);
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        String cur = title ? p.getTitleText() : (p.getDescription() == null ? "" : p.getDescription());
+        meta.displayName(legacy(cur.isEmpty() ? "type here" : cur));
+        paper.setItemMeta(meta);
+        inv.setItem(0, paper);
+        player.openInventory(inv);
+        player.sendMessage("§7Type the " + (title ? "title" : "description")
+                + " in the box, then click the result on the right to save. One line only.");
     }
 
     // ---------- helpers ----------

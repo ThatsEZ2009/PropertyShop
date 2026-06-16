@@ -57,6 +57,8 @@ public class PropertyCommand implements CommandExecutor, TabCompleter {
             case "trust" -> doTrust(p, args, true);
             case "untrust" -> doTrust(p, args, false);
             case "trustlist" -> doTrustList(p);
+            case "settitle" -> doSetText(p, args, true);
+            case "setdesc" -> doSetText(p, args, false);
             case "create" -> {
                 String name = args.length >= 2 ? args[1] : null;
                 Property created = plugin.createProperty(p, name);
@@ -136,6 +138,26 @@ public class PropertyCommand implements CommandExecutor, TabCompleter {
         if (add) { prop.addTrusted(id); p.sendMessage(ChatColor.GREEN + "Trusted " + args[1] + " on '" + prop.getName() + "'."); }
         else { prop.removeTrusted(id); p.sendMessage(ChatColor.YELLOW + "Removed " + args[1] + " from '" + prop.getName() + "'."); }
         plugin.getManager().save();
+    }
+
+    private void doSetText(Player p, String[] args, boolean title) {
+        Property prop = plugin.getManager().getAt(p.getLocation().getChunk());
+        if (prop == null) { p.sendMessage(ChatColor.RED + "Stand inside the property first."); return; }
+        if (!(p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId()))) {
+            p.sendMessage(ChatColor.RED + "Only the owner can change that here."); return;
+        }
+        if (args.length < 2) {
+            p.sendMessage(ChatColor.RED + "/property " + (title ? "settitle" : "setdesc") + " <text...>  (or 'clear')");
+            return;
+        }
+        String text = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+        if (text.equalsIgnoreCase("clear")) text = "";
+        text = plugin.capText(text, title ? plugin.maxTitleLen() : plugin.maxDescLen());
+        if (title) prop.setTitle(text.isEmpty() ? null : text);
+        else prop.setDescription(text.isEmpty() ? null : text);
+        plugin.getManager().save();
+        p.sendMessage(ChatColor.GREEN + (title ? "Title" : "Description") + " saved"
+                + (text.isEmpty() ? " (cleared)." : ": " + text));
     }
 
     private void doTrustList(Player p) {

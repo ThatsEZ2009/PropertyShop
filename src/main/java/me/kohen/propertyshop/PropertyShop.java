@@ -27,7 +27,9 @@ public class PropertyShop extends JavaPlugin {
     private SelectionManager selection;
     private Menus menus;
     private BorderManager borders;
+    private HologramManager holograms;
     private final Set<Material> protectedBlocks = new HashSet<>();
+    private final java.util.Map<java.util.UUID, String> titleLast = new java.util.HashMap<>();
 
     private NamespacedKey actionKey;
     private NamespacedKey wandKey;
@@ -44,6 +46,7 @@ public class PropertyShop extends JavaPlugin {
         selection = new SelectionManager(this);
         menus = new Menus(this);
         borders = new BorderManager(this);
+        holograms = new HologramManager(this);
         buildProtectedSet();
 
         PropertyCommand cmd = new PropertyCommand(this);
@@ -56,14 +59,20 @@ public class PropertyShop extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MenuListener(this), this);
 
         startWandHighlight();
-        getLogger().info("PropertyShop v1.3.0 enabled.");
+        holograms.cleanupStray();
+        startBorderTask();
+        startHologramTask();
+        getLogger().info("PropertyShop v1.6.0 enabled.");
     }
 
     @Override
     public void onDisable() {
         if (borders != null) borders.clearAll();
+        if (holograms != null) holograms.removeAll();
         if (manager != null) manager.save();
     }
+
+    public HologramManager getHolograms() { return holograms; }
 
     public PropertyManager getManager() { return manager; }
     public SelectionManager getSelection() { return selection; }
@@ -110,6 +119,12 @@ public class PropertyShop extends JavaPlugin {
         return prop.isTrusted(p.getUniqueId());
     }
 
+    /** The property at this chunk only if it's "active" (owned or priced). Drafts return null. */
+    public Property activeAt(Chunk c) {
+        Property p = manager.getAt(c);
+        return (p != null && p.isActive()) ? p : null;
+    }
+
     public Property createProperty(Player player, String optionalName) {
         String world;
         List<String> chunks;
@@ -144,6 +159,86 @@ public class PropertyShop extends JavaPlugin {
     }
 
     // ---------------- particle outlines ----------------
+    private void startBorderTask() {
+        new BukkitRunnable() {
+            @Override public void run() {
+                int radius = getConfig().getInt("for-sale-ring.view-chunks", 8);
+                boolean titlesOn = getConfig().getBoolean("titles.enabled", true);
+                for (Player p : getServer().getOnlinePlayers()) {
+                    String world = p.getWorld().getName();
+                    Chunk pc = p.getLocation().getChunk();
+                    int cx = pc.getX(), cz = pc.getZ();
+                    java.util.Map<String, Boolean> desired = new java.util.HashMap<>();
+                    for (Property prop : manager.all()) {
+                        if (!prop.getWorld().equals(world)) continue;
+                        if (prop.isOwned()) {
+                            if ((prop.isOwnedBy(p.getUniqueId()) || prop.isTrusted(p.getUniqueId()))
+                                    && prop.getChunks().contains(cx + "," + cz)) {
+                                desired.put(prop.getName(), false); // owner ring (outside)
+                            }
+                        } else if (prop.hasPrice()) {
+                            if (withinRadius(prop, cx, cz, radius)) desired.put(prop.getName(), true); // green (inside)
+                        }
+                    }
+                    borders.reconcile(p, desired);
+
+                    // Title only when ENTERING a plot (not every chunk inside it).
+                    Property in = activeAt(pc);
+                    String inName = (in == null) ? null : in.getName();
+                    String last = titleLast.get(p.getUniqueId());
+                    if (inName == null) {
+                        titleLast.remove(p.getUniqueId());
+                    } else if (!inName.equals(last)) {
+                        titleLast.put(p.getUniqueId(), inName);
+                        if (titlesOn) {
+                            if (in.isOwned()) showTitle(p, in.getTitleText(), in.getDescription());
+                            else showTitle(p, "&a&lFOR SALE", "&fPrice: " + in.priceString());
+                        }
+                    }
+                }
+            }
+        }.runTaskTimer(this, 20L, 15L);
+    }
+
+    private boolean withinRadius(Property prop, int cx, int cz, int radius) {
+        for (String key : prop.getChunks()) {
+            String[] pa = key.split(",");
+            try {
+                int x = Integer.parseInt(pa[0]), z = Integer.parseInt(pa[1]);
+                if (Math.abs(x - cx) <= radius && Math.abs(z - cz) <= radius) return true;
+            } catch (NumberFormatException ignored) {}
+        }
+        return false;
+    }
+
+    private void startHologramTask() {
+        new BukkitRunnable() {
+            @Override public void run() { holograms.refreshAll(); }
+        }.runTaskTimer(this, 60L, 100L);
+    }
+
+    private void showTitle(Player p, String titleStr, String subStr) {
+        var ser = net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand();
+        net.kyori.adventure.text.Component t = ser.deserialize(titleStr == null ? "" : titleStr);
+        net.kyori.adventure.text.Component s = (subStr == null || subStr.isEmpty())
+                ? net.kyori.adventure.text.Component.empty() : ser.deserialize(subStr);
+        net.kyori.adventure.title.Title.Times times = net.kyori.adventure.title.Title.Times.times(
+                java.time.Duration.ofMillis(getConfig().getInt("titles.fade-in-ms", 300)),
+                java.time.Duration.ofMillis(getConfig().getInt("titles.stay-ms", 2000)),
+                java.time.Duration.ofMillis(getConfig().getInt("titles.fade-out-ms", 1000)));
+        p.showTitle(net.kyori.adventure.title.Title.title(t, s, times));
+    }
+
+    /** Force one line and cap length so a title/description never wraps. */
+    public String capText(String s, int max) {
+        if (s == null) return "";
+        s = s.replace("\n", " ").replace("\r", " ").trim();
+        return s.length() > max ? s.substring(0, max) : s;
+    }
+
+    public int maxTitleLen() { return getConfig().getInt("titles.max-title-length", 24); }
+    public int maxDescLen() { return getConfig().getInt("titles.max-description-length", 40); }
+
     private void startWandHighlight() {
         new BukkitRunnable() {
             @Override public void run() {
