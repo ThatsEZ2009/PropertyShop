@@ -37,11 +37,6 @@ public class BorderManager {
         Shown(boolean forSale, List<Fake> blocks) { this.forSale = forSale; this.blocks = blocks; }
     }
 
-    private Material mat(String path, Material def) {
-        Material m = Material.matchMaterial(plugin.getConfig().getString(path, def.name()));
-        return m == null ? def : m;
-    }
-
     public void reconcile(Player p, Map<String, Boolean> desired) {
         Map<String, Shown> cur = shown.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>());
         Iterator<Map.Entry<String, Shown>> it = cur.entrySet().iterator();
@@ -74,10 +69,9 @@ public class BorderManager {
         List<Fake> out = new ArrayList<>();
         World w = Bukkit.getWorld(prop.getWorld());
         if (w == null) return out;
-        BlockData a = (forSale ? mat("border.for-sale.block-a", Material.LIME_CONCRETE)
-                : mat("border.owned.block-a", Material.YELLOW_CONCRETE)).createBlockData();
-        BlockData b = (forSale ? mat("border.for-sale.block-b", Material.GREEN_CONCRETE)
-                : mat("border.owned.block-b", Material.BLACK_CONCRETE)).createBlockData();
+        // Always green now. Owner = dark green / lime, for-sale = lime / dark green.
+        BlockData a = (forSale ? Material.LIME_CONCRETE : Material.GREEN_CONCRETE).createBlockData();
+        BlockData b = (forSale ? Material.GREEN_CONCRETE : Material.LIME_CONCRETE).createBlockData();
 
         Set<String> cs = prop.getChunks();
         Set<String> seen = new HashSet<>();

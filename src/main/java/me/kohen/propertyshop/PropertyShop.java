@@ -28,6 +28,7 @@ public class PropertyShop extends JavaPlugin {
     private Menus menus;
     private BorderManager borders;
     private HologramManager holograms;
+    private WandMapManager wandMap;
     private final Set<Material> protectedBlocks = new HashSet<>();
     private final Set<Material> borderSurfaces = new HashSet<>();
     private final java.util.Map<java.util.UUID, String> titleLast = new java.util.HashMap<>();
@@ -49,6 +50,7 @@ public class PropertyShop extends JavaPlugin {
         menus = new Menus(this);
         borders = new BorderManager(this);
         holograms = new HologramManager(this);
+        wandMap = new WandMapManager(this);
         buildProtectedSet();
         buildBorderSurfaces();
 
@@ -66,17 +68,19 @@ public class PropertyShop extends JavaPlugin {
         holograms.cleanupStray();
         startBorderTask();
         startHologramTask();
-        getLogger().info("PropertyShop v1.8.0 enabled.");
+        getLogger().info("PropertyShop v1.9.0 enabled.");
     }
 
     @Override
     public void onDisable() {
         if (borders != null) borders.clearAll();
+        if (wandMap != null) wandMap.clearAll();
         if (holograms != null) holograms.removeAll();
         if (manager != null) manager.save();
     }
 
     public HologramManager getHolograms() { return holograms; }
+    public WandMapManager getWandMap() { return wandMap; }
 
     public PropertyManager getManager() { return manager; }
     public SelectionManager getSelection() { return selection; }
@@ -112,6 +116,13 @@ public class PropertyShop extends JavaPlugin {
         for (String s : getConfig().getStringList("border.surface-blocks")) {
             Material m = Material.matchMaterial(s);
             if (m != null) borderSurfaces.add(m);
+        }
+        if (borderSurfaces.isEmpty()) { // stale/old config with no list - use sensible defaults
+            String[] defs = {"GRASS_BLOCK","DIRT","COARSE_DIRT","PODZOL","ROOTED_DIRT","MYCELIUM",
+                    "DIRT_PATH","FARMLAND","SAND","RED_SAND","GRAVEL","STONE","GRANITE","DIORITE",
+                    "ANDESITE","DEEPSLATE","TUFF","SANDSTONE","RED_SANDSTONE","SNOW_BLOCK","MUD",
+                    "CLAY","MOSS_BLOCK","NETHERRACK","SOUL_SAND","SOUL_SOIL","END_STONE","BASALT","BLACKSTONE"};
+            for (String s : defs) { Material m = Material.matchMaterial(s); if (m != null) borderSurfaces.add(m); }
         }
     }
 
@@ -293,31 +304,12 @@ public class PropertyShop extends JavaPlugin {
 
     private void startWandHighlight() {
         new BukkitRunnable() {
+            int cyc = 0;
             @Override public void run() {
+                cyc++;
                 for (Player p : getServer().getOnlinePlayers()) {
-                    if (!isWand(p.getInventory().getItemInMainHand())) continue;
-                    if (!p.hasPermission("propertyshop.admin")) continue; // op/admin only
-                    World w = p.getWorld();
-                    String world = w.getName();
-                    Chunk here = p.getLocation().getChunk();
-                    int r = getConfig().getInt("wand-map.radius", 2);
-                    Color red = Color.fromRGB(255, 45, 45);
-                    Color blue = Color.fromRGB(50, 110, 255);
-                    Color green = Color.fromRGB(60, 255, 90);
-
-                    for (int dx = -r; dx <= r; dx++) {
-                        for (int dz = -r; dz <= r; dz++) {
-                            int cx = here.getX() + dx, cz = here.getZ() + dz;
-                            boolean claimed = manager.ownerOfChunk(world, cx + "," + cz) != null;
-                            chunkParticles(p, w, cx, cz, claimed ? red : blue, true);
-                        }
-                    }
-                    // Your current selection on top, in green outline.
-                    for (String key : selection.chunks(p)) {
-                        String[] pa = key.split(",");
-                        try { chunkParticles(p, w, Integer.parseInt(pa[0]), Integer.parseInt(pa[1]), green, false); }
-                        catch (NumberFormatException ignored) {}
-                    }
+                    wandMap.update(p);
+                    if (cyc % 4 == 0) wandMap.resend(p); // keep it on Bedrock too
                 }
             }
         }.runTaskTimer(this, 20L, 8L);
