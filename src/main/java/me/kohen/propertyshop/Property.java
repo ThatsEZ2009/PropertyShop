@@ -19,6 +19,10 @@ public class Property {
     private String ownerName;
     private String title;        // big title text (null = auto from owner)
     private String description;  // one-line subtitle
+    private boolean borderEnabled = true;
+    private boolean titleEnabled = true;
+    private String borderBlockA; // null = default
+    private String borderBlockB; // null = default
 
     public Property(String name, String world) {
         this.name = name;
@@ -59,7 +63,20 @@ public class Property {
         this.trusted.clear();
         this.title = null;
         this.description = null;
+        this.borderEnabled = true;
+        this.titleEnabled = true;
+        this.borderBlockA = null;
+        this.borderBlockB = null;
     }
+
+    public boolean isBorderEnabled() { return borderEnabled; }
+    public void setBorderEnabled(boolean b) { this.borderEnabled = b; }
+    public boolean isTitleEnabled() { return titleEnabled; }
+    public void setTitleEnabled(boolean b) { this.titleEnabled = b; }
+    public String getBorderBlockA() { return borderBlockA; }
+    public void setBorderBlockA(String s) { this.borderBlockA = s; }
+    public String getBorderBlockB() { return borderBlockB; }
+    public void setBorderBlockB(String s) { this.borderBlockB = s; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }

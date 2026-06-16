@@ -167,6 +167,12 @@ public class PropertyManager {
             if (titleStr != null && !titleStr.isEmpty()) p.setTitle(titleStr);
             String descStr = s.getString("description", "");
             if (descStr != null && !descStr.isEmpty()) p.setDescription(descStr);
+            p.setBorderEnabled(s.getBoolean("border-enabled", true));
+            p.setTitleEnabled(s.getBoolean("title-enabled", true));
+            String ba = s.getString("border-block-a", "");
+            if (ba != null && !ba.isEmpty()) p.setBorderBlockA(ba);
+            String bb = s.getString("border-block-b", "");
+            if (bb != null && !bb.isEmpty()) p.setBorderBlockB(bb);
             ConfigurationSection priceSec = s.getConfigurationSection("price");
             if (priceSec != null) {
                 for (String mat : priceSec.getKeys(false)) {
@@ -188,6 +194,10 @@ public class PropertyManager {
             yml.set(base + "owner-name", p.getOwnerName() == null ? "" : p.getOwnerName());
             yml.set(base + "title", p.getTitle() == null ? "" : p.getTitle());
             yml.set(base + "description", p.getDescription() == null ? "" : p.getDescription());
+            yml.set(base + "border-enabled", p.isBorderEnabled());
+            yml.set(base + "title-enabled", p.isTitleEnabled());
+            yml.set(base + "border-block-a", p.getBorderBlockA() == null ? "" : p.getBorderBlockA());
+            yml.set(base + "border-block-b", p.getBorderBlockB() == null ? "" : p.getBorderBlockB());
             List<String> trust = new ArrayList<>();
             for (UUID id : p.getTrusted()) trust.add(id.toString());
             yml.set(base + "trusted", trust);

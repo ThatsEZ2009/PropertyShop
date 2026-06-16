@@ -28,6 +28,12 @@ public class BorderManager {
 
     public BorderManager(PropertyShop plugin) { this.plugin = plugin; }
 
+    private Material matOr(String name, Material def) {
+        if (name == null || name.isEmpty()) return def;
+        Material m = Material.matchMaterial(name);
+        return (m == null || !m.isBlock()) ? def : m;
+    }
+
     private static class Fake {
         final Location loc; final BlockData data;
         Fake(Location loc, BlockData data) { this.loc = loc; this.data = data; }
@@ -69,9 +75,15 @@ public class BorderManager {
         List<Fake> out = new ArrayList<>();
         World w = Bukkit.getWorld(prop.getWorld());
         if (w == null) return out;
-        // Always green now. Owner = dark green / lime, for-sale = lime / dark green.
-        BlockData a = (forSale ? Material.LIME_CONCRETE : Material.GREEN_CONCRETE).createBlockData();
-        BlockData b = (forSale ? Material.GREEN_CONCRETE : Material.LIME_CONCRETE).createBlockData();
+        // For-sale = lime/dark green. Owned = the owner's chosen staggered blocks (default green/lime).
+        BlockData a, b;
+        if (forSale) {
+            a = Material.LIME_CONCRETE.createBlockData();
+            b = Material.GREEN_CONCRETE.createBlockData();
+        } else {
+            a = matOr(prop.getBorderBlockA(), Material.GREEN_CONCRETE).createBlockData();
+            b = matOr(prop.getBorderBlockB(), Material.LIME_CONCRETE).createBlockData();
+        }
 
         Set<String> cs = prop.getChunks();
         Set<String> seen = new HashSet<>();

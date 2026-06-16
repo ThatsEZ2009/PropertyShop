@@ -45,6 +45,16 @@ public class MenuListener implements Listener {
             handleTrustToggle(p, prop, action.substring(6));
             return;
         }
+        if (action.startsWith("pick:")) {
+            if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId()))) {
+                String mat = action.substring(5);
+                if (ph.getType() == PropertyHolder.Type.BORDER_PICK_A) prop.setBorderBlockA(mat);
+                else prop.setBorderBlockB(mat);
+                plugin.getManager().save();
+                plugin.getMenus().openPanel(p, prop);
+            }
+            return;
+        }
 
         switch (action) {
             case "close" -> p.closeInventory();
@@ -94,6 +104,28 @@ public class MenuListener implements Listener {
             case "setdesc" -> {
                 if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId())))
                     startTextInput(p, prop, false);
+            }
+            case "toggleborder" -> {
+                if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId()))) {
+                    prop.setBorderEnabled(!prop.isBorderEnabled());
+                    plugin.getManager().save();
+                    plugin.getMenus().openPanel(p, prop);
+                }
+            }
+            case "toggletitle" -> {
+                if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId()))) {
+                    prop.setTitleEnabled(!prop.isTitleEnabled());
+                    plugin.getManager().save();
+                    plugin.getMenus().openPanel(p, prop);
+                }
+            }
+            case "bordera" -> {
+                if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId())))
+                    plugin.getMenus().openBorderPicker(p, prop, true);
+            }
+            case "borderb" -> {
+                if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId())))
+                    plugin.getMenus().openBorderPicker(p, prop, false);
             }
         }
     }

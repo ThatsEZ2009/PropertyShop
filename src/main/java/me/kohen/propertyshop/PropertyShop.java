@@ -68,7 +68,7 @@ public class PropertyShop extends JavaPlugin {
         holograms.cleanupStray();
         startBorderTask();
         startHologramTask();
-        getLogger().info("PropertyShop v1.9.2 enabled.");
+        getLogger().info("PropertyShop v1.10.0 enabled.");
     }
 
     @Override
@@ -205,7 +205,7 @@ public class PropertyShop extends JavaPlugin {
                     for (Property prop : manager.all()) {
                         if (!prop.getWorld().equals(world)) continue;
                         if (prop.isOwned()) {
-                            if (nearPlot(prop, px, pz, ownRange)) {
+                            if (prop.isBorderEnabled() && nearPlot(prop, px, pz, ownRange)) {
                                 desired.put(prop.getName(), false); // owned border - visible to everyone near it
                             }
                         } else if (prop.hasPrice()) {
@@ -224,8 +224,11 @@ public class PropertyShop extends JavaPlugin {
                     } else if (!inName.equals(last)) {
                         titleLast.put(p.getUniqueId(), inName);
                         if (titlesOn) {
-                            if (in.isOwned()) showTitle(p, in.getTitleText(), in.getDescription());
-                            else showTitle(p, "&a&lFOR SALE", "&fPrice: " + in.priceString());
+                            if (in.isOwned()) {
+                                if (in.isTitleEnabled()) showTitle(p, in.getTitleText(), in.getDescription());
+                            } else {
+                                showTitle(p, "&a&lFOR SALE", "&fPrice: " + in.priceString());
+                            }
                         }
                     }
                 }
