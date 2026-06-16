@@ -59,11 +59,47 @@ protected-blocks:
 # changes anyone's real blocks. Sits 1 block outside the plot, on the top surface.
 border:
   enabled: true
-  # Yellow/black ring shown to the OWNER & trusted inside an owned plot (private).
+  # Keep showing the owner ring until you're this many blocks OUTSIDE the plot,
+  # so you can step out and still see your border.
+  show-range: 5
+  # The ring only paints on these natural ground blocks. Anything not listed -
+  # water, lava, and all player-built blocks - is skipped, so the border never
+  # covers builds or floats on water. Add/remove blocks to taste.
+  surface-blocks:
+    - GRASS_BLOCK
+    - DIRT
+    - COARSE_DIRT
+    - PODZOL
+    - ROOTED_DIRT
+    - MYCELIUM
+    - DIRT_PATH
+    - FARMLAND
+    - SAND
+    - RED_SAND
+    - GRAVEL
+    - STONE
+    - GRANITE
+    - DIORITE
+    - ANDESITE
+    - DEEPSLATE
+    - TUFF
+    - SANDSTONE
+    - RED_SANDSTONE
+    - SNOW_BLOCK
+    - MUD
+    - CLAY
+    - MOSS_BLOCK
+    - NETHERRACK
+    - SOUL_SAND
+    - SOUL_SOIL
+    - END_STONE
+    - BASALT
+    - BLACKSTONE
+  # Owner ring (private, shown to owner & trusted) - now green.
   owned:
-    block-a: YELLOW_CONCRETE
-    block-b: BLACK_CONCRETE
-  # Green ring shown to EVERYONE inside a for-sale plot so they know it's available.
+    block-a: GREEN_CONCRETE
+    block-b: LIME_CONCRETE
+  # For-sale ring (everyone) - lime green, just inside the edge.
   for-sale:
     block-a: LIME_CONCRETE
     block-b: GREEN_CONCRETE

@@ -115,6 +115,8 @@ public class BorderManager {
         if (!seen.add(k)) return;
         int y = w.getHighestBlockYAt(x, z);
         Location loc = new Location(w, x, y, z);
+        // Only paint on natural ground - skip water, lava, and player-built blocks.
+        if (!plugin.isBorderSurface(loc.getBlock().getType())) return;
         BlockData data = (((x + z) & 1) == 0) ? a : b;
         p.sendBlockChange(loc, data);
         out.add(new Fake(loc, data));

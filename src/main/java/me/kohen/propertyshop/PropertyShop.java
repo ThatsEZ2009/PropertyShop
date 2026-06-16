@@ -29,6 +29,7 @@ public class PropertyShop extends JavaPlugin {
     private BorderManager borders;
     private HologramManager holograms;
     private final Set<Material> protectedBlocks = new HashSet<>();
+    private final Set<Material> borderSurfaces = new HashSet<>();
     private final java.util.Map<java.util.UUID, String> titleLast = new java.util.HashMap<>();
     public final java.util.Map<java.util.UUID, String[]> textInput = new java.util.HashMap<>(); // uuid -> {propName, "T"/"D"}
 
@@ -49,6 +50,7 @@ public class PropertyShop extends JavaPlugin {
         borders = new BorderManager(this);
         holograms = new HologramManager(this);
         buildProtectedSet();
+        buildBorderSurfaces();
 
         PropertyCommand cmd = new PropertyCommand(this);
         getCommand("property").setExecutor(cmd);
@@ -64,7 +66,7 @@ public class PropertyShop extends JavaPlugin {
         holograms.cleanupStray();
         startBorderTask();
         startHologramTask();
-        getLogger().info("PropertyShop v1.7.0 enabled.");
+        getLogger().info("PropertyShop v1.8.0 enabled.");
     }
 
     @Override
@@ -93,6 +95,7 @@ public class PropertyShop extends JavaPlugin {
     public void reloadAll() {
         reloadConfig();
         buildProtectedSet();
+        buildBorderSurfaces();
         manager.load();
     }
 
@@ -102,6 +105,19 @@ public class PropertyShop extends JavaPlugin {
             Material m = Material.matchMaterial(s);
             if (m != null) protectedBlocks.add(m);
         }
+    }
+
+    private void buildBorderSurfaces() {
+        borderSurfaces.clear();
+        for (String s : getConfig().getStringList("border.surface-blocks")) {
+            Material m = Material.matchMaterial(s);
+            if (m != null) borderSurfaces.add(m);
+        }
+    }
+
+    /** The ring may only paint on these natural blocks (never water/lava/builds). */
+    public boolean isBorderSurface(Material m) {
+        return borderSurfaces.contains(m);
     }
 
     public boolean isProtectedBlock(Material m) {
@@ -167,18 +183,20 @@ public class PropertyShop extends JavaPlugin {
             @Override public void run() {
                 cycle++;
                 int radius = getConfig().getInt("for-sale-ring.view-chunks", 8);
+                int ownRange = getConfig().getInt("border.show-range", 5);
                 boolean titlesOn = getConfig().getBoolean("titles.enabled", true);
                 for (Player p : getServer().getOnlinePlayers()) {
                     String world = p.getWorld().getName();
                     Chunk pc = p.getLocation().getChunk();
                     int cx = pc.getX(), cz = pc.getZ();
+                    int px = p.getLocation().getBlockX(), pz = p.getLocation().getBlockZ();
                     java.util.Map<String, Boolean> desired = new java.util.HashMap<>();
                     for (Property prop : manager.all()) {
                         if (!prop.getWorld().equals(world)) continue;
                         if (prop.isOwned()) {
                             if ((prop.isOwnedBy(p.getUniqueId()) || prop.isTrusted(p.getUniqueId()))
-                                    && prop.getChunks().contains(cx + "," + cz)) {
-                                desired.put(prop.getName(), false); // owner ring (outside)
+                                    && nearPlot(prop, px, pz, ownRange)) {
+                                desired.put(prop.getName(), false); // owner ring (green, 5-block range)
                             }
                         } else if (prop.hasPrice()) {
                             if (withinRadius(prop, cx, cz, radius)) desired.put(prop.getName(), true); // green (inside)
@@ -203,6 +221,21 @@ public class PropertyShop extends JavaPlugin {
                 }
             }
         }.runTaskTimer(this, 20L, 15L);
+    }
+
+    /** True if the player is within `range` blocks of the plot's bounding box. */
+    private boolean nearPlot(Property prop, int px, int pz, int range) {
+        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, minZ = Integer.MAX_VALUE, maxZ = Integer.MIN_VALUE;
+        for (String key : prop.getChunks()) {
+            String[] pa = key.split(",");
+            try {
+                int bx = Integer.parseInt(pa[0]) << 4, bz = Integer.parseInt(pa[1]) << 4;
+                minX = Math.min(minX, bx); maxX = Math.max(maxX, bx + 15);
+                minZ = Math.min(minZ, bz); maxZ = Math.max(maxZ, bz + 15);
+            } catch (NumberFormatException ignored) {}
+        }
+        if (minX == Integer.MAX_VALUE) return false;
+        return px >= minX - range && px <= maxX + range && pz >= minZ - range && pz <= maxZ + range;
     }
 
     private boolean withinRadius(Property prop, int cx, int cz, int radius) {
