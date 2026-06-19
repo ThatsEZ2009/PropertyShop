@@ -33,17 +33,34 @@ public class HologramManager {
         holos.clear();
     }
 
+    /** Remove any tagged hologram entity that is NOT a currently-tracked for-sale hologram.
+     *  Catches "ghost" displays whose tracking link broke (e.g. left after a plot was bought). */
+    private void sweepGhosts() {
+        Set<UUID> keep = new HashSet<>(holos.values());
+        for (World w : Bukkit.getWorlds()) {
+            for (Entity e : w.getEntities()) {
+                if (!(e instanceof TextDisplay)) continue;
+                if (!e.getScoreboardTags().contains(TAG)) continue;
+                if (!keep.contains(e.getUniqueId())) e.remove();
+            }
+        }
+    }
+
     public void refreshAll() {
         Set<String> desired = new HashSet<>();
         for (Property prop : plugin.getManager().all()) {
             if (!prop.isOwned() && prop.hasPrice()) desired.add(prop.getName().toLowerCase());
         }
+        // drop holograms for plots that are now owned / no longer for sale
         for (String name : new ArrayList<>(holos.keySet())) {
             if (!desired.contains(name)) remove(name);
         }
+        // (re)create holograms for plots that should have one
         for (Property prop : plugin.getManager().all()) {
             if (!prop.isOwned() && prop.hasPrice()) ensure(prop);
         }
+        // finally, kill any orphaned tagged display that isn't tracked (ghost from a bought plot)
+        sweepGhosts();
     }
 
     private void ensure(Property prop) {

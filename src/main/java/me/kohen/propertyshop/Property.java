@@ -21,6 +21,7 @@ public class Property {
     private String description;  // one-line subtitle
     private boolean borderEnabled = true;
     private boolean titleEnabled = true;
+    private boolean pvp = false; // per-plot PvP; OFF by default (safe)
     private String borderBlockA; // null = default
     private String borderBlockB; // null = default
 
@@ -65,6 +66,7 @@ public class Property {
         this.description = null;
         this.borderEnabled = true;
         this.titleEnabled = true;
+        this.pvp = false;
         this.borderBlockA = null;
         this.borderBlockB = null;
     }
@@ -73,6 +75,8 @@ public class Property {
     public void setBorderEnabled(boolean b) { this.borderEnabled = b; }
     public boolean isTitleEnabled() { return titleEnabled; }
     public void setTitleEnabled(boolean b) { this.titleEnabled = b; }
+    public boolean isPvp() { return pvp; }
+    public void setPvp(boolean b) { this.pvp = b; }
     public String getBorderBlockA() { return borderBlockA; }
     public void setBorderBlockA(String s) { this.borderBlockA = s; }
     public String getBorderBlockB() { return borderBlockB; }

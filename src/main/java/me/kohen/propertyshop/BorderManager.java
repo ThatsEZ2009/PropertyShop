@@ -17,10 +17,12 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Per-player, client-side rings. Owner plots = yellow/black just OUTSIDE the edge (shown
- * when inside). For-sale plots = green just INSIDE the edge, shown to everyone in range.
+ * Per-player, client-side rings. Both owner plots and for-sale plots draw the ring
+ * just INSIDE the plot edge (on the plot's own outer blocks), so it lines up with how
+ * you actually see the plot. Owner plots use the owner's chosen staggered blocks and
+ * are shown to everyone in range; for-sale plots use green/lime.
  * Fake blocks are re-sent periodically so Bedrock/Geyser clients that load a chunk late
- * still receive them (that's why the green ring wasn't showing on Bedrock).
+ * still receive them.
  */
 public class BorderManager {
     private final PropertyShop plugin;
@@ -97,21 +99,12 @@ public class BorderManager {
             boolean west = !cs.contains((cx - 1) + "," + cz);
             boolean east = !cs.contains((cx + 1) + "," + cz);
 
-            if (forSale) { // just INSIDE the plot edge
-                if (north) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz, a, b, seen, out);
-                if (south) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz + 15, a, b, seen, out);
-                if (west) for (int z = bz; z < bz + 16; z++) place(p, w, bx, z, a, b, seen, out);
-                if (east) for (int z = bz; z < bz + 16; z++) place(p, w, bx + 15, z, a, b, seen, out);
-            } else { // just OUTSIDE the plot edge
-                if (north) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz - 1, a, b, seen, out);
-                if (south) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz + 16, a, b, seen, out);
-                if (west) for (int z = bz; z < bz + 16; z++) place(p, w, bx - 1, z, a, b, seen, out);
-                if (east) for (int z = bz; z < bz + 16; z++) place(p, w, bx + 16, z, a, b, seen, out);
-                if (north && west) place(p, w, bx - 1, bz - 1, a, b, seen, out);
-                if (north && east) place(p, w, bx + 16, bz - 1, a, b, seen, out);
-                if (south && west) place(p, w, bx - 1, bz + 16, a, b, seen, out);
-                if (south && east) place(p, w, bx + 16, bz + 16, a, b, seen, out);
-            }
+            // Both owned and for-sale rings now sit just INSIDE the plot edge,
+            // on the plot's own outer blocks, so the border lines up with the plot.
+            if (north) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz, a, b, seen, out);
+            if (south) for (int x = bx; x < bx + 16; x++) place(p, w, x, bz + 15, a, b, seen, out);
+            if (west) for (int z = bz; z < bz + 16; z++) place(p, w, bx, z, a, b, seen, out);
+            if (east) for (int z = bz; z < bz + 16; z++) place(p, w, bx + 15, z, a, b, seen, out);
         }
         return out;
     }

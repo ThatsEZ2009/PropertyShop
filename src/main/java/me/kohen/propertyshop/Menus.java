@@ -108,10 +108,17 @@ public class Menus {
             btns.add(button(p.isTitleEnabled() ? Material.GLOWSTONE_DUST : Material.GRAY_DYE,
                     "§bEntry Title: " + (p.isTitleEnabled() ? "§aON" : "§cOFF"), "toggletitle",
                     List.of("§7Click to toggle the big text", "§7shown when entering your plot")));
+            btns.add(button(p.isPvp() ? Material.DIAMOND_SWORD : Material.SHIELD,
+                    "§bPvP: " + (p.isPvp() ? "§aON" : "§cOFF"), "togglepvp",
+                    List.of("§7Click to toggle player-vs-player", "§7combat inside your plot")));
             btns.add(button(matOr(p.getBorderBlockA(), Material.GREEN_CONCRETE), "§bBorder Color 1", "bordera",
                     List.of("§7Click to pick the first", "§7staggered border block")));
             btns.add(button(matOr(p.getBorderBlockB(), Material.LIME_CONCRETE), "§bBorder Color 2", "borderb",
                     List.of("§7Click to pick the second", "§7staggered border block")));
+        }
+        if (admin) {
+            btns.add(button(Material.GRASS_BLOCK, "§aAdd selection to this plot", "expand",
+                    List.of("§7Select land with the wand first,", "§7then click to add it to this plot")));
         }
         if (admin && p.isOwned())
             btns.add(button(Material.LEVER, "§eMake available again", "unclaim", List.of("§7Clears the owner")));

@@ -74,6 +74,20 @@ public class MenuListener implements Listener {
                 if (prop != null && p.hasPermission("propertyshop.admin"))
                     plugin.getMenus().openPriceEditor(p, prop);
             }
+            case "expand" -> {
+                if (prop != null && p.hasPermission("propertyshop.admin")) {
+                    int added = plugin.getManager().expandWithSelection(p, prop);
+                    if (added == -1) {
+                        p.sendMessage(ChatColor.RED + "Your wand selection is in a different world than this plot.");
+                    } else if (added == 0) {
+                        p.sendMessage(ChatColor.RED + "No new chunks added. Select land with the wand first "
+                                + "(those chunks may already belong to a plot).");
+                    } else {
+                        p.sendMessage(ChatColor.GREEN + "Added " + added + " chunk(s) to '" + prop.getName() + "'.");
+                    }
+                    plugin.getMenus().openPanel(p, prop);
+                }
+            }
             case "unclaim" -> {
                 if (prop != null && p.hasPermission("propertyshop.admin")) {
                     prop.clearOwner();
@@ -116,6 +130,15 @@ public class MenuListener implements Listener {
                 if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId()))) {
                     prop.setTitleEnabled(!prop.isTitleEnabled());
                     plugin.getManager().save();
+                    plugin.getMenus().openPanel(p, prop);
+                }
+            }
+            case "togglepvp" -> {
+                if (prop != null && (p.hasPermission("propertyshop.admin") || prop.isOwnedBy(p.getUniqueId()))) {
+                    prop.setPvp(!prop.isPvp());
+                    plugin.getManager().save();
+                    p.sendMessage(ChatColor.GREEN + "PvP on '" + prop.getName() + "' is now "
+                            + (prop.isPvp() ? ChatColor.RED + "ON" : ChatColor.GREEN + "OFF") + ChatColor.GREEN + ".");
                     plugin.getMenus().openPanel(p, prop);
                 }
             }

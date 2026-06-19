@@ -91,6 +91,20 @@ public class PropertyManager {
         return added;
     }
 
+    /**
+     * Expand an existing property using a player's current wand selection.
+     * Returns the number of chunks actually added (0 if none / no selection / wrong world).
+     */
+    public int expandWithSelection(Player player, Property prop) {
+        SelectionManager sel = plugin.getSelection();
+        if (!sel.has(player)) return 0;
+        if (!sel.world(player).equals(prop.getWorld())) return -1; // signal "wrong world"
+        List<String> chunks = sel.chunks(player);
+        int added = addChunks(prop, chunks);
+        if (added > 0) sel.clear(player);
+        return added;
+    }
+
     public boolean canAfford(Player p, Property prop) {
         for (Map.Entry<Material, Integer> e : prop.getPrice().entrySet()) {
             if (countItem(p.getInventory(), e.getKey()) < e.getValue()) return false;
@@ -116,6 +130,8 @@ public class PropertyManager {
         }
         prop.setOwner(p.getUniqueId(), p.getName());
         save();
+        // Immediately clear the for-sale hologram for this plot so it never lingers.
+        if (plugin.getHolograms() != null) plugin.getHolograms().refreshAll();
     }
 
     private int countItem(PlayerInventory inv, Material m) {
@@ -169,6 +185,7 @@ public class PropertyManager {
             if (descStr != null && !descStr.isEmpty()) p.setDescription(descStr);
             p.setBorderEnabled(s.getBoolean("border-enabled", true));
             p.setTitleEnabled(s.getBoolean("title-enabled", true));
+            p.setPvp(s.getBoolean("pvp", false)); // missing on old data -> false (safe)
             String ba = s.getString("border-block-a", "");
             if (ba != null && !ba.isEmpty()) p.setBorderBlockA(ba);
             String bb = s.getString("border-block-b", "");
@@ -196,6 +213,7 @@ public class PropertyManager {
             yml.set(base + "description", p.getDescription() == null ? "" : p.getDescription());
             yml.set(base + "border-enabled", p.isBorderEnabled());
             yml.set(base + "title-enabled", p.isTitleEnabled());
+            yml.set(base + "pvp", p.isPvp());
             yml.set(base + "border-block-a", p.getBorderBlockA() == null ? "" : p.getBorderBlockA());
             yml.set(base + "border-block-b", p.getBorderBlockB() == null ? "" : p.getBorderBlockB());
             List<String> trust = new ArrayList<>();
